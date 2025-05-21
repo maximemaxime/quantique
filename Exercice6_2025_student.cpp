@@ -21,7 +21,7 @@ void triangular_solve(vector<T> const& diag,  vector<T> const& lower, vector<T> 
     vector<T> new_rhs = rhs;
 
     // forward elimination
-    for (int i(1); i < diag.size(); ++i) {
+    for (size_t i(1); i < diag.size(); ++i) {
         T pivot = lower[i - 1] / new_diag[i - 1];
         new_diag[i] -= pivot * upper[i - 1];
         new_rhs[i] -= pivot * new_rhs[i - 1];
@@ -189,7 +189,7 @@ int main(int argc, char** argv)
     int Nintervals = configFile.get<int>("Nintervals");
 
     // TODO: initialiser le paquet d'onde, equation (4.116) du cours
-    double k0 = 2 * PI * n / L;;
+    double k0 = 2 * PI * n / (xR-xL); 
 
     int Npoints = Nintervals + 1;
     double dx = (xR - xL) / Nintervals;
@@ -228,8 +228,7 @@ int main(int argc, char** argv)
     vec_cmplx dB(Npoints), aB(Nintervals),
       cB(Nintervals); // matrice du membre de droite de l'equation (4.100)
 
-    complex<double> a =
-      complex_i * hbar * dt / (4.*m*dx*dx); // Coefficient complexe a de l'equation (4.100)
+    complex<double> a = complex_i * hbar * dt / (4.*m*dx*dx); // Coefficient complexe a de l'equation (4.100)
 
     // TODO: calculer les éléments des matrices A, B et H.
     // Ces matrices sont stockées sous forme tridiagonale, d:diagonale, c et a: diagonales
@@ -272,7 +271,7 @@ int main(int argc, char** argv)
     ofstream fichier_potentiel((output + "_pot.out").c_str());
     fichier_potentiel.precision(15);
     for (int i(0); i < Npoints; ++i)
-        fichier_potentiel << x[i] << " " <<V() << endl;
+        fichier_potentiel << x[i] << " " << V(x[i], xL, xR, xa, xb, V0, om0) << endl;
     fichier_potentiel.close();
 
     ofstream fichier_psi((output + "_psi2.out").c_str());
@@ -283,9 +282,8 @@ int main(int argc, char** argv)
 
     // t0 writing
     for (int i(0); i < Npoints; ++i){
-        fichier_psi << abs(psi[i])  << " " << real(psi[i]) << " "  << imag(psi[i]) << " ";
+        fichier_psi << abs(psi[i])  << " " << real(psi[i]) << " "  << imag(psi[i]) << endl;
         }
-    fichier_psi << endl;
 
     // Ecriture des observables :
     // TODO: introduire les arguments des fonctions prob, E, xmoy, x2moy, pmoy et p2moy
@@ -316,9 +314,8 @@ int main(int argc, char** argv)
 
         // t0 writing
         for (int i(0); i < Npoints; ++i){
-            fichier_psi << abs(psi[i])  << " " << real(psi[i]) << " "  << imag(psi[i]) << " ";
+            fichier_psi << abs(psi[i])  << " " << real(psi[i]) << " "  << imag(psi[i]) << endl;
             }
-        fichier_psi << endl;
 
         // Ecriture des observables :
 	// TODO: introduire les arguments des fonctions prob, E, xmoy, x2moy, pmoy et p2moy

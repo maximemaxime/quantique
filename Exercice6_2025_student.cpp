@@ -66,12 +66,30 @@ double prob(vec_cmplx const& psi, int i, int j, double dx) {
 
 
 // TODO calculer l'energie
-double E(vec_cmplx const& psi, vec_cmplx const& H_psi, double dx) {
-    complex<double> total = 0.0;
-    for (size_t i = 0; i < psi.size(); ++i)
-        total += conj(psi[i]) * H_psi[i];
-    return real(total) * dx;
+double E(vec_cmplx const& psi, vector<double> const& x, double dx, double hbar, double m,
+         double xL, double xR, double xa, double xb, double V0, double om0)
+{
+    double energy = 0.0;
+
+    complex<double> d2psi = (psi[2] - 2. * psi[1] + psi[0]) / (dx * dx);
+    complex<double> Hpsi = -0.5 * hbar * hbar / m * d2psi + V(x[1], xL, xR, xa, xb, V0, om0) * psi[1];
+    energy += 0.5 * real(conj(psi[1]) * Hpsi);
+
+    for (size_t i = 2; i < x.size() - 2; ++i)
+    {
+        complex<double> d2psi = (psi[i + 1] - 2. * psi[i] + psi[i - 1]) / (dx * dx);
+        complex<double> Hpsi = -0.5 * hbar * hbar / m * d2psi + V(x[i], xL, xR, xa, xb, V0, om0) * psi[i];
+        energy += real(conj(psi[i]) * Hpsi);
+    }
+
+    size_t mmm = x.size() - 2;
+    complex<double> d2psi = (psi[mmm + 1] - 2. * psi[mmm] + psi[mmm - 1]) / (dx * dx);
+    complex<double> Hpsi = -0.5 * hbar * hbar / m * d2psi + V(x[mmm], xL, xR, xa, xb, V0, om0) * psi[mmm];
+    energy += 0.5 * real(conj(psi[mmm]) * Hpsi);
+
+    return energy * dx;
 }
+
 
 // TODO calculer xmoyenne
 double xmoy(vec_cmplx const& psi, vector<double> const& x, double dx) {
@@ -134,7 +152,7 @@ double p2moy(vec_cmplx const& psi, double dx, double hbar) {
 
 
 // TODO calculer la normalization
-vec_cmplx normalize(vec_cmplx const& psi, double dx) {
+vec_cmplx normalize(vec_cmplx const& psi, double const& dx) {
     double norm = 0;
 
     norm += 0.5 * std::norm(psi[0]) + 0.5 * std::norm(psi.back());
@@ -235,22 +253,17 @@ int main(int argc, char** argv)
     // supérieures et inférieures
     for (int i(0); i < Npoints; ++i) // Boucle sur les points de maillage
     {
-		double Vx = V(x[i], xL, xR, xa, xb, V0, om0);
-		
-        dH[i] = Vx + hbar * hbar / (m * dx * dx);
-        dA[i] = 1. + complex_i * dt / (2. * hbar) * dH[i];
-        dB[i] = 1. - complex_i * dt / (2. * hbar) * dH[i];
+        double Vx = V(x[i], xL, xR, xa, xb, V0, om0);
+        dH[i] = Vx;
+        dA[i] = 1. + 2.0 * a + complex_i * dt * Vx / (2. * hbar);
+        dB[i] = 1. - 2.0 * a - complex_i * dt * Vx / (2. * hbar);
     }
     for (int i(0); i < Nintervals; ++i) // Boucle sur les intervalles
     {
+        aH[i] = cH[i] = -hbar * hbar / (2. * m * dx * dx);
         
-		aH[i] = -hbar * hbar / (2. * m * dx * dx);
-		aA[i] = complex_i * dt / (2. * hbar) * aH[i];
-		aB[i] = -complex_i * dt / (2. * hbar) * aH[i];
-    
-		cH[i] = -hbar * hbar / (2. * m * dx * dx);
-		cA[i] = complex_i * dt / (2. * hbar) * cH[i];
-		cB[i] = -complex_i * dt / (2. * hbar) * cH[i];
+        aA[i] = cA[i] = -a;
+        aB[i] = cB[i] = a;
     }
 
     // Conditions aux limites: psi nulle aux deux bords
@@ -259,9 +272,7 @@ int main(int argc, char** argv)
 	dA[0] = dA[Npoints - 1] = 1.;
     dB[0] = dB[Npoints - 1] = 1.;
     aA[0] = aA[Npoints - 2] = 0.;
-    cA[0] = cA[Npoints - 2] = 0.;
     aB[0] = aB[Npoints - 2] = 0.;
-    cB[0] = cB[Npoints - 2] = 0.;
 
 
 
@@ -291,7 +302,7 @@ int main(int argc, char** argv)
     fichier_observables << t << " "
                         << prob(psi, 0, Npoints / 2, dx) << " "
                         << prob(psi, Npoints / 2, Npoints - 1, dx) << " "
-                        << E(psi, psi, dx) << " "
+                        << E(psi, x, dx, hbar, m, xL, xR, xa, xb, V0, om0) << " "
                         << xmoy(psi, x, dx) << " "
                         << x2moy(psi, x, dx) << " "
                         << pmoy(psi, dx, hbar) << " "
@@ -310,6 +321,10 @@ int main(int argc, char** argv)
 
         // Resolution de A * psi = psi_tmp :
         triangular_solve(dA, aA, cA, psi_tmp, psi);
+        
+        psi[0] = complex<double>(0., 0.);
+        psi[Npoints - 1] = complex<double>(0., 0.);
+        
         t += dt;
 
         // t0 writing
@@ -323,7 +338,7 @@ int main(int argc, char** argv)
         fichier_observables << t << " "
                             << prob(psi, 0, Npoints / 2, dx) << " "
                             << prob(psi, Npoints / 2, Npoints - 1, dx) << " "
-                            << E(psi, psi, dx) << " "
+                            << E(psi, x, dx, hbar, m, xL, xR, xa, xb, V0, om0) << " "
                             << xmoy(psi, x, dx) << " "
                             << x2moy(psi, x, dx) << " "
                             << pmoy(psi, dx, hbar) << " "
